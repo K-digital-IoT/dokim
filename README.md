@@ -1,3 +1,9 @@
+20220816>
+main.cpp -> LightDHT
+nodered export
+
+--
+
 아두이노에서 센서와 엑츄에이터들의 결선부터 main.cpp의 코딩 및 설정, IBM Cloud와 Node-RED의 세팅, 최종적으로 Node-RED의 dashboard GUI를 활용한 제어까지 진행
 
 조도센서, 온습도센서, 릴레이, LED까지 확인, OLED 디스플레이는 MM케이블 배송 이후 시험 예정
