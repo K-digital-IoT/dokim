@@ -1,74 +1,38 @@
 #include <IBMIOTF32.h>
-#include <DHT.h>
-#include <esp_log.h>
 #include <Adafruit_Sensor.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <Fonts/FreeSerif9pt7b.h>
+#include <DHT.h>
+#include <Adafruit_I2CDevice.h>
+#include <SPI.h>
 
+#define LIGHT_PIN 36
+#define DHTPIN 22
+#define DHTTYPE DHT22
 
-#define LED 2
-#define RELAY 22
-
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_RESET -1 //TODO: define again when MM cable arrives
-
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
+DHT dht(DHTPIN, DHTTYPE);
 
 String user_html = "";
-
-
 
 
 char*               ssid_pfix = (char*)"iothome";
 unsigned long       lastPublishMillis = 0;
 
-char *ledon = "on";
-char *ledoff = "off";
-char *ledonoff;
-
-char *relayon = "on";
-char *relayoff = "off";
-char *relayonoff;
-
 const char *displaytext = "Ready";
 
-void ledstate(){
-    if(digitalRead(LED) == 1){
-        ledonoff = ledon;
-    }
-    else{
-        ledonoff = ledoff;
-    }
-}
-
-void relayloop() {
-    if(digitalRead(RELAY) == 1) {
-        relayonoff = relayon;
-    } else {
-        relayonoff = relayoff;
-    }
-    
-}
-
+int lightValue;
+float h, t;
 
 
 void publishData() {
     StaticJsonDocument<512> root;
     JsonObject data = root.createNestedObject("d");
 
-    
-    data["LED"] = ledonoff;
-    data["RELAY"] = relayonoff;
-    data["DISP"] = displaytext;
-    
+
+    data["LIGHT"] = lightValue;
+    data["TEMP"] = t;
+    data["HUMIDITY"] = h;
 
     serializeJson(root, msgBuffer);
     client.publish(publishTopic, msgBuffer);
-
 
 }
 
@@ -76,49 +40,6 @@ void handleUserCommand(JsonDocument* root) {
     JsonObject d = (*root)["d"];
 
     // YOUR CODE for command handling
-    
-     if(d.containsKey("LED")) {
-        if (strcmp(d["LED"], "off")) {
-            digitalWrite(LED,HIGH);
-            
-            Serial.println("LED on");
-        } 
-        else {
-            digitalWrite(LED,LOW);
-            
-            Serial.println("LED off");
-        }
-    }
-
-    if(d.containsKey("RELAY")) {
-        if (strcmp(d["RELAY"], "off")) {
-            digitalWrite(RELAY, HIGH);
-
-            Serial.println("RELAY on");
-        } else {
-            digitalWrite(RELAY, LOW);
-
-            Serial.println("RELAY off");
-        }
-    }
-
-    if(d.containsKey("DISP")) {
-
-        displaytext = d["DISP"].as<char*>();
-        String dispText = (String) displaytext;
-
-        display.clearDisplay();
-
-        display.setTextSize(1);
-        display.setTextColor(WHITE);
-        display.setCursor(0,10);
-        display.println(dispText);
-        display.display();
-
-        Serial.println(dispText);
-
-    }
-
 
 }
 
@@ -143,37 +64,36 @@ void message(char* topic, byte* payload, unsigned int payloadLength) {
     }
 }
 
-void displaySetup() {
+void lightLoop() {
 
-    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3D)) { // or 0x3C
-        Serial.println("allocation failed");
-        for(;;);
+    lightValue = analogRead(LIGHT_PIN);
+    Serial.print("brightness = ");
+    Serial.println(lightValue);
 
-        delay(3000);
-
-        display.clearDisplay();
-
-        display.setTextSize(1);
-        display.setTextColor(WHITE);
-        display.setCursor(0,10);
-        display.println("Ready");
-        display.display();
-
-    }
-    
 }
+
+void dhtLoop() {
+
+    h = dht.readHumidity();
+    t = dht.readTemperature();
+
+    Serial.print("humidity = ");
+    Serial.println(h);
+    Serial.print("temperature = ");
+    Serial.println(t);
+
+}
+
+void dhtSetup() {
+    dht.begin();
+}
+
 
 void setup() {
     Serial.begin(115200);
     initDevice();
-    
-    pinMode(LED,OUTPUT);
-    pinMode(RELAY,OUTPUT);
 
-    digitalWrite(LED,LOW);
-    digitalWrite(RELAY,LOW);
-
-    displaySetup();
+    dhtSetup();
 
     yield();
     JsonObject meta = cfg["meta"];
@@ -213,6 +133,11 @@ void loop() {
         lastPublishMillis = millis();
         yield();
     }
-    ledstate();
-    relayloop();
+
+    lightLoop();
+
+    dhtLoop();
+
+    delay(2000);
+
 }
